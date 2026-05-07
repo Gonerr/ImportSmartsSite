@@ -7,6 +7,7 @@ const Layout = () => {
   
   const getActiveTab = () => {
     if (location.pathname.includes('/importer')) return 'importer';
+    if (location.pathname.includes('/deals')) return 'deals';
     if (location.pathname.includes('/parser')) return 'parser';
     return 'importer'; 
   };
@@ -31,16 +32,22 @@ const Layout = () => {
             className={`nav-button ${activeTab === 'importer' ? 'active' : ''}`}
             onClick={() => handleTabClick('importer')}
           >
-            <span className="nav-icon">📊</span>
             <span className="nav-text">Импорт данных</span>
             {activeTab === 'importer' && <div className="active-indicator"></div>}
+          </button>
+
+          <button
+            className={`nav-button ${activeTab === 'deals' ? 'active' : ''}`}
+            onClick={() => handleTabClick('deals')}
+          >
+            <span className="nav-text">Импорт сделок</span>
+            {activeTab === 'deals' && <div className="active-indicator"></div>}
           </button>
           
           <button
             className={`nav-button ${activeTab === 'parser' ? 'active' : ''}`}
             onClick={() => handleTabClick('parser')}
           >
-            <span className="nav-icon">🔍</span>
             <span className="nav-text">Парсер</span>
             {activeTab === 'parser' && <div className="active-indicator"></div>}
           </button>

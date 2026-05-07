@@ -4,9 +4,9 @@
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-export async function importExcelToBitrix(
+export async function importExcelDealsToBitrix(
     b24Service,
-    entityTypeId,
+    categoryId,
     excelRows,
     mapping,
     onProgress = () => {},
@@ -45,15 +45,13 @@ export async function importExcelToBitrix(
 
             if (itemId) {
 
-                const check = await b24Service.call('crm.item.get', {
-                    entityTypeId,
+                const check = await b24Service.call('crm.deal.get', {
                     id: itemId
                 });
 
                 if (check?.result?.item) {
 
-                    await b24Service.call('crm.item.update', {
-                        entityTypeId,
+                    await b24Service.call('crm.deal.update', {
                         id: itemId,
                         fields
                     });
@@ -63,9 +61,18 @@ export async function importExcelToBitrix(
 
                 } else {
 
-                    await b24Service.call('crm.item.add', {
-                        entityTypeId,
-                        fields
+                    await b24Service.call('crm.deal.add', {
+                        fields: {
+                            ...fields,
+                            CATEGORY_ID: categoryId,
+                            UF_CRM_1776258311751:  "12270"
+                        }
+                    },
+                    (result) => {
+                        result.error()
+                            ? console.error(result.error())
+                            : console.info(result.data())
+                        ;
                     });
 
                     created++;
@@ -74,10 +81,20 @@ export async function importExcelToBitrix(
 
             } else {
 
-                await b24Service.call('crm.item.add', {
-                    entityTypeId,
-                    fields
+                await b24Service.call('crm.deal.add', {
+                    fields: {
+                        ...fields,
+                        CATEGORY_ID: categoryId,
+                        UF_CRM_1776258311751:  "12270"
+                    }
+                },
+                (result) => {
+                    result.error()
+                        ? console.error(result.error())
+                        : console.info(result.data())
+                    ;
                 });
+
 
                 created++;
                 onProgress(`➕ [${i + 1}] Создан новый элемент`);

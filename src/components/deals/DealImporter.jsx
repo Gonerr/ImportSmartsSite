@@ -1,20 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import {
     BitrixService,
-    getAllSmartProcesses,
-    getFieldsItem,
+    getAllDealCategories,
+
+    getFieldsDeal,
     readExcelFile,
     mockProcesses,
     mockFields
 } from '../../services/bitrixService';
-import { importExcelToBitrix } from './importExcelToBitrix';
+import { importExcelDealsToBitrix } from '../importer/importExcelDealToBitrix';
 import Swal from 'sweetalert2';
 
-const SmartProcessUpdater = () => {
+const DealImporter = () => {
 
-    const [processList, setProcessList] = useState([]);
-    const [selectedProcess, setSelectedProcess] = useState('');
-    const [entityTypeId, setEntityTypeId] = useState('');
+    const [CategoriesList, setCategoriesList] = useState([]);
+    const [selectedCategory, setSelectedCategory] = useState('');
+    const [categoryId, setCategoryId] = useState('');
     const [excelFile, setExcelFile] = useState(null);
     const [excelData, setExcelData] = useState(null);
     const [fields, setFields] = useState(null);
@@ -30,9 +31,12 @@ const SmartProcessUpdater = () => {
     const [progress, setProgress] = useState(0);
     const [sdkAvailable, setSdkAvailable] = useState(true);
     const [sdkError, setSdkError] = useState(null);
+
+    
     const b24Service = new BitrixService('https://acceptgroup.bitrix24.ru/rest/116/c1o0f03s3eluvrmo/');
 
 
+    // Для тестирования
     useEffect(() => {
         const checkSDK = async () => {
             try {
@@ -51,15 +55,15 @@ const SmartProcessUpdater = () => {
         };
 
         checkSDK();
-        loadProcesses();
+        loadDeals();
 
-        const savedEntityTypeId = sessionStorage.getItem('entityTypeId');
+        const savedCategoryId = sessionStorage.getItem('categoryId');
         const savedExcelData = sessionStorage.getItem('excelData');
         const savedMapping = sessionStorage.getItem('mapping');
 
-        if (savedEntityTypeId) {
-            setEntityTypeId(savedEntityTypeId);
-            setSelectedProcess(savedEntityTypeId);
+        if (savedCategoryId) {
+            setCategoryId(savedCategoryId);
+            setSelectedCategory(savedCategoryId);
             setCurrentStep(2);
         }
         if (savedExcelData) {
@@ -71,7 +75,7 @@ const SmartProcessUpdater = () => {
         }
     }, []);
 
-    const loadProcesses = async () => {
+    const loadDeals = async () => {
         setLoading(true);
         setApiError(null);
 
@@ -84,7 +88,7 @@ const SmartProcessUpdater = () => {
                 result = mockProcesses;
             } else {
                 console.log('Пробуем реальный API');
-                result = await getAllSmartProcesses(b24Service);
+                result = await getAllDealCategories(b24Service);
 
                 if (!result.success) {
                     console.log('API недоступно, переключаемся на мок данные');
@@ -95,7 +99,7 @@ const SmartProcessUpdater = () => {
             }
 
             if (result.success) {
-                setProcessList(Object.values(result.data));
+                setCategoriesList(Object.values(result.data));
             } else {
                 setApiError(result.error);
             }
@@ -105,25 +109,27 @@ const SmartProcessUpdater = () => {
 
             setUseMockData(true);
             await new Promise(resolve => setTimeout(resolve, 1000));
-            setProcessList(Object.values(mockProcesses.data));
+            setCategoriesList(Object.values(mockProcesses.data));
         } finally {
             setLoading(false);
         }
     };
 
-    const handleProcessSelect = async (e) => {
+    const handleCategorySelect = async (e) => {
         e.preventDefault();
-        if (!selectedProcess) {
+        if (!selectedCategory) {
             Swal.fire({
                 icon: 'warning',
                 title: 'Внимание',
-                text: 'Пожалуйста, выберите смарт-процесс'
+                text: 'Пожалуйста, выберите воронку'
             });
             return;
         }
 
-        setEntityTypeId(selectedProcess);
-        sessionStorage.setItem('entityTypeId', selectedProcess);
+        setCategoryId(selectedCategory);
+        console.log({
+            categoryId: categoryId
+        })
         setCurrentStep(2);
 
         setLoading(true);
@@ -137,8 +143,13 @@ const SmartProcessUpdater = () => {
                 await new Promise(resolve => setTimeout(resolve, 500));
                 fieldsResult = mockFields;
             } else {
+
                 // Реальный запрос к API
-                fieldsResult = await getFieldsItem(b24Service, parseInt(selectedProcess));
+                fieldsResult = await getFieldsDeal(b24Service);
+
+                console.log('Все поля:', fieldsResult.data);
+                console.log('Количество полей:', fieldsResult.data ? Object.keys(fieldsResult.data).length : 0);
+                console.log('Ключи полей:', fieldsResult.data ? Object.keys(fieldsResult.data) : []);
 
                 if (!fieldsResult.success) {
                     setUseMockData(true);
@@ -149,6 +160,8 @@ const SmartProcessUpdater = () => {
 
             if (fieldsResult.success) {
                 setFields(fieldsResult.data);
+                
+                
             } else {
                 setApiError(fieldsResult.error);
             }
@@ -165,6 +178,9 @@ const SmartProcessUpdater = () => {
 
     // Обработка загрузки Excel файла
     const handleFileUpload = async (e) => {
+        console.log({
+            categoryId: categoryId
+        })
         e.preventDefault();
         if (!excelFile) {
             Swal.fire({
@@ -175,7 +191,7 @@ const SmartProcessUpdater = () => {
             return;
         }
 
-        if (!entityTypeId) {
+        if (!categoryId) {
             Swal.fire({
                 icon: 'warning',
                 title: 'Внимание',
@@ -222,8 +238,8 @@ const SmartProcessUpdater = () => {
 
     // Очистка сессии
     const clearSession = () => {
-        setSelectedProcess('');
-        setEntityTypeId('');
+        setSelectedCategory('');
+        setCategoryId(null);
         setExcelFile(null);
         setExcelData(null);
         setFields(null);
@@ -266,9 +282,9 @@ const SmartProcessUpdater = () => {
         try {
             const total = excelData.rows.length;
 
-            const summary = await importExcelToBitrix(
+            const summary = await importExcelDealsToBitrix(
                 b24Service,
-                entityTypeId,
+                categoryId,
                 excelData.rows,
                 mapping,
                 (log, index) => {
@@ -319,7 +335,7 @@ const SmartProcessUpdater = () => {
     return (
         <div className="app-container">
             <div className="header">
-                <h1>Импорт данных в смарт-процессы</h1>
+                <h1>Загрузка сделок</h1>
                 <p>Массовое обновление элементов Bitrix24</p>
             </div>
 
@@ -342,7 +358,7 @@ const SmartProcessUpdater = () => {
             <div className="progress-bar">
                 <div className={`step ${currentStep >= 1 ? 'active' : ''}`}>
                     <div className="step-number">1</div>
-                    <span>Выбор процесса</span>
+                    <span>Выбор категории</span>
                 </div>
                 <div className={`step ${currentStep >= 2 ? 'active' : ''}`}>
                     <div className="step-number">2</div>
@@ -358,24 +374,24 @@ const SmartProcessUpdater = () => {
             {currentStep === 1 && (
                 <div className="step-container">
                     <div className="card">
-                        <h2>Выберите смарт-процесс</h2>
-                        <form onSubmit={handleProcessSelect} className="form">
+                        <h2>Выберите категории</h2>
+                        <form onSubmit={handleCategorySelect} className="form">
                             <div className="form-group">
                                 <select
-                                    value={selectedProcess}
-                                    onChange={(e) => setSelectedProcess(e.target.value)}
+                                    value={selectedCategory}
+                                    onChange={(e) => setSelectedCategory(e.target.value)}
                                     className="form-select"
                                     required
                                 >
-                                    <option value="">-- Выберите смарт-процесс --</option>
-                                    {processList.map(process => (
-                                        <option key={process.entityTypeId} value={process.entityTypeId}>
-                                            {process.name} (ID: {process.entityTypeId})
+                                    <option value="">-- Выберите воронку сделок --</option>
+                                    {CategoriesList.map(category => (
+                                        <option key={category.id} value={category.id}>
+                                            {category.name} (ID: {category.id})
                                         </option>
                                     ))}
                                 </select>
                             </div>
-                            <button type="submit" className="btn-primary" disabled={loading || !selectedProcess}>
+                            <button type="submit" className="btn-primary" disabled={loading || !selectedCategory}>
                                 {loading ? 'Загрузка...' : 'Продолжить'}
                             </button>
                         </form>
@@ -391,7 +407,7 @@ const SmartProcessUpdater = () => {
                             <h2>Загрузите Excel файл</h2>
                             <button onClick={clearSession} className="btn-text">Сменить процесс</button>
                         </div>
-                        <p className="process-info">Выбранный процесс: <strong>ID {entityTypeId}</strong></p>
+                        <p className="process-info">Выбранная воронка: <strong>ID {categoryId}</strong></p>
 
                         <form onSubmit={handleFileUpload} className="form">
                             <div className="file-upload-area">
@@ -437,8 +453,8 @@ const SmartProcessUpdater = () => {
 
                         <div className="info-grid">
                             <div className="info-item">
-                                <label>Процесс:</label>
-                                <span>ID {entityTypeId}</span>
+                                <label>Воронка:</label>
+                                <span>ID {categoryId}</span>
                             </div>
                             <div className="info-item">
                                 <label>Файл:</label>
@@ -471,7 +487,7 @@ const SmartProcessUpdater = () => {
                                                     <option value="">-- Не использовать --</option>
                                                     <option value="id">ID элемента (для обновления)</option>
                                                     {fields && Object.entries(fields).map(([fieldCode, fieldInfo]) => {
-                                                        const title = fieldInfo.title || fieldInfo.formLabel || fieldCode;
+                                                        const title = fieldInfo.filterLabel || fieldInfo.formLabel || fieldInfo.title || fieldCode;
                                                         return (
                                                             <option key={fieldCode} value={fieldCode}>
                                                                 {title} ({fieldCode})
@@ -550,4 +566,4 @@ const SmartProcessUpdater = () => {
     );
 };
 
-export default SmartProcessUpdater;
+export default DealImporter;
